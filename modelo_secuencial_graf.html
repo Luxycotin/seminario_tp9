@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Modelo secuencial: y = 2x + 6</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 600px;
+      margin: auto;
+      background-color: #f9f9f9;
+    }
+    h1 {
+      color: #333;
+    }
+    input, button {
+      font-size: 16px;
+      padding: 10px;
+      margin-top: 10px;
+      width: 100%;
+    }
+    #status {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #e8f0fe;
+      border-left: 5px solid #4285f4;
+    }
+    canvas {
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Modelo: y = 2x + 6</h1>
+
+  <div id="status">Entrenando modelo...</div>
+
+  <input type="text" id="inputX" placeholder="Ej: -2, 0, 2, 4.5" disabled>
+  <button onclick="predecir()" disabled id="btnPredecir">Predecir Y</button>
+
+  <div id="resultado"></div>
+
+  <canvas id="graficoPerdida" width="600" height="300"></canvas>
+
+  <script>
+    let modelo;
+    let chart;
+
+    async function entrenarModelo() {
+      modelo = tf.sequential();
+      modelo.add(tf.layers.dense({ units: 1, inputShape: [1] }));
+
+      modelo.compile({
+        loss: 'meanSquaredError',
+        optimizer: 'sgd'
+      });
+
+      const xs = tf.tensor2d([-6, -5, -4, -3, -2, -1, 0, 1, 2], [9, 1]);
+      const ys = tf.tensor2d([-6, -4, -2, 0, 2, 4, 6, 8, 10], [9, 1]);
+
+      const perdidas = [];
+
+      await modelo.fit(xs, ys, {
+        epochs: 350,
+        callbacks: {
+          onEpochEnd: (epoch, logs) => {
+            perdidas.push(logs.loss);
+            if ((epoch + 1) % 50 === 0) {
+              document.getElementById('status').innerText =
+                `Época ${epoch + 1}/350 - Pérdida: ${logs.loss.toFixed(4)}`;
+            }
+          },
+          onTrainEnd: () => {
+            document.getElementById('status').innerText = "Modelo preparado.";
+            document.getElementById('inputX').disabled = false;
+            document.getElementById('btnPredecir').disabled = false;
+            graficarPerdida(perdidas);
+          }
+        }
+      });
+    }
+
+    function graficarPerdida(perdidas) {
+      const ctx = document.getElementById('graficoPerdida').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: perdidas.map((_, i) => i + 1),
+          datasets: [{
+            label: 'Pérdida (loss)',
+            data: perdidas,
+            borderColor: 'blue',
+            fill: false,
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Evolución de la pérdida durante el entrenamiento'
+            }
+          },
+          scales: {
+            x: { title: { display: true, text: 'Época' }},
+            y: { title: { display: true, text: 'Pérdida (loss)' }}
+          }
+        }
+      });
+    }
+
+    async function predecir() {
+      const input = document.getElementById('inputX').value;
+      const valores = input.split(',').map(x => parseFloat(x.trim())).filter(x => !isNaN(x));
+
+      if (valores.length === 0) {
+        document.getElementById('resultado').innerText = "Ingresa al menos un número válido.";
+        return;
+      }
+
+      const tensorInput = tf.tensor2d(valores, [valores.length, 1]);
+      const predicciones = await modelo.predict(tensorInput).array();
+
+      let html = "<strong>Predicciones:</strong><ul>";
+      valores.forEach((x, i) => {
+        html += `<li>x = ${x} → y ≈ ${predicciones[i][0].toFixed(2)}</li>`;
+      });
+      html += "</ul>";
+      document.getElementById('resultado').innerHTML = html;
+    }
+
+    entrenarModelo();
+  </script>
+
+</body>
+</html>

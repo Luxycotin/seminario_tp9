@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Modelo secuencial</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0/dist/tf.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 500px;
+      margin: auto;
+      background-color: #f9f9f9;
+    }
+    h1 {
+      color: #333;
+    }
+    input, button {
+      font-size: 16px;
+      padding: 10px;
+      margin-top: 10px;
+      width: 100%;
+    }
+    #status {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #e8f0fe;
+      border-left: 5px solid #4285f4;
+    }
+  </style>
+</head>
+<body>
+
+  <h1> Modelo: y = 2x + 6</h1>
+
+  <div id="status">Entrenando modelo... </div>
+
+  <input type="number" id="inputX" placeholder="Ingresa un valor para X" disabled>
+  <button onclick="predecir()" disabled id="btnPredecir">Predecir Y</button>
+
+  <div id="resultado"></div>
+
+  <script>
+    let modelo;
+
+    async function entrenarModelo() {
+      modelo = tf.sequential();
+      modelo.add(tf.layers.dense({ units: 1, inputShape: [1] }));
+
+
+      modelo.compile({
+        loss: 'meanSquaredError',
+        optimizer: 'sgd'
+      });
+
+      
+      const xs = tf.tensor2d([-6, -5, -4, -3, -2, -1, 0, 1, 2], [9, 1]);
+      const ys = tf.tensor2d([-6, -4, -2, 0, 2, 4, 6, 8, 10], [9, 1]);
+      await modelo.fit(xs, ys, {
+        epochs: 350,
+        callbacks: {
+          onEpochEnd: (epoch, logs) => {
+            if ((epoch + 1) % 50 === 0) {
+              document.getElementById('status').innerText =
+                `Época ${epoch + 1}/350 - Pérdida: ${logs.loss.toFixed(4)}`;
+            }
+          },
+          onTrainEnd: () => {
+            document.getElementById('status').innerText = "Modelo preparado.";
+            document.getElementById('inputX').disabled = false;
+            document.getElementById('btnPredecir').disabled = false;
+          }
+        }
+      });
+    }
+
+    async function predecir() {
+      const x = parseFloat(document.getElementById('inputX').value);
+      if (isNaN(x)) {
+        document.getElementById('resultado').innerText = "Ingresa un número válido.";
+        return;
+      }
+
+      const inputTensor = tf.tensor2d([x], [1, 1]);
+      const prediccion = modelo.predict(inputTensor);
+      const y = (await prediccion.array())[0][0];
+
+      document.getElementById('resultado').innerHTML =
+        `<strong>Predicción:</strong> y = ${y.toFixed(2)}`;
+    }
+
+
+    entrenarModelo();
+  </script>
+
+</body>
+</html>
